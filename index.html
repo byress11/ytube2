@@ -520,16 +520,24 @@
             }
 
             .search-container {
-                margin: 0 12px;
+                flex: 1;
+                max-width: none;
+                margin: 0 8px;
+            }
+
+            .search-input {
+                font-size: 16px;
+                padding: 14px 50px 14px 16px;
             }
 
             .header-controls {
-                gap: 8px;
+                gap: 4px;
+                flex-shrink: 0;
             }
 
             .btn {
-                padding: 6px 12px;
-                font-size: 12px;
+                padding: 6px 8px;
+                font-size: 11px;
             }
 
             .video-grid {
@@ -739,6 +747,7 @@
         <div class="nav-container">
             <div class="categories" id="categories">
                 <button class="category-btn active" data-category="">Tümü</button>
+                <button class="category-btn" data-category="podcast">🎙️ Podcastler</button>
                 <button class="category-btn" data-category="10">Müzik</button>
                 <button class="category-btn" data-category="20">Oyun</button>
                 <button class="category-btn" data-category="22">İnsanlar ve Bloglar</button>
@@ -757,6 +766,11 @@
         <div id="trendingSection">
             <h2 class="section-title">📈 Trend Videolar</h2>
             <div class="video-grid" id="trendingGrid"></div>
+        </div>
+
+        <div id="podcastSection" style="display: none;">
+            <h2 class="section-title">🎙️ Güncel Podcastler</h2>
+            <div class="video-grid" id="podcastGrid"></div>
         </div>
 
         <div id="searchSection" style="display: none;">
@@ -859,8 +873,10 @@
             queueToggle: document.getElementById('queueToggle'),
             categories: document.getElementById('categories'),
             trendingGrid: document.getElementById('trendingGrid'),
+            podcastGrid: document.getElementById('podcastGrid'),
             searchGrid: document.getElementById('searchGrid'),
             trendingSection: document.getElementById('trendingSection'),
+            podcastSection: document.getElementById('podcastSection'),
             searchSection: document.getElementById('searchSection'),
             searchTitle: document.getElementById('searchTitle'),
             loading: document.getElementById('loading'),
@@ -992,6 +1008,49 @@
                 hideLoading();
             } catch (error) {
                 showError('Trend videolar yüklenirken hata oluştu: ' + error.message);
+            }
+        }
+
+        async function loadPodcasts() {
+            try {
+                showLoading();
+                
+                const podcastQueries = [
+                    'türkçe podcast',
+                    'podcast türkiye',
+                    'gündem podcast',
+                    'teknoloji podcast',
+                    'söyleşi podcast',
+                    'röportaj podcast'
+                ];
+
+                const randomQuery = podcastQueries[Math.floor(Math.random() * podcastQueries.length)];
+                
+                const data = await apiRequest('search', {
+                    part: 'snippet',
+                    q: randomQuery,
+                    type: 'video',
+                    maxResults: 20,
+                    order: 'date', // En yeni podcastler için
+                    publishedAfter: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Son 1 hafta
+                    videoDuration: 'long' // Uzun videolar (podcast karakteristiği)
+                });
+
+                // Podcast benzeri içerikleri filtrele
+                const podcastVideos = data.items.filter(video => {
+                    const title = video.snippet.title.toLowerCase();
+                    const description = video.snippet.description.toLowerCase();
+                    return title.includes('podcast') || 
+                           title.includes('söyleşi') || 
+                           title.includes('röportaj') || 
+                           title.includes('konuşma') ||
+                           description.includes('podcast');
+                });
+
+                renderVideos(podcastVideos.slice(0, 20), elements.podcastGrid);
+                hideLoading();
+            } catch (error) {
+                showError('Podcastler yüklenirken hata oluştu: ' + error.message);
             }
         }
 
@@ -1255,9 +1314,15 @@
 
         function showTrendingVideos() {
             elements.searchSection.style.display = 'none';
+            elements.podcastSection.style.display = 'none';
             elements.trendingSection.style.display = 'block';
             elements.searchInput.value = '';
             state.searchQuery = '';
+            
+            // Reset active category
+            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.category-btn[data-category=""]').classList.add('active');
+            state.activeCategory = '';
         }
 
         // Category Functions
@@ -1268,11 +1333,21 @@
             
             state.activeCategory = button.dataset.category;
 
-            // Reload content based on category
-            if (state.searchQuery) {
+            // Hide all sections first
+            elements.trendingSection.style.display = 'none';
+            elements.podcastSection.style.display = 'none';
+            elements.searchSection.style.display = 'none';
+
+            // Show appropriate section and load content
+            if (state.activeCategory === 'podcast') {
+                elements.podcastSection.style.display = 'block';
+                loadPodcasts();
+            } else if (state.searchQuery) {
+                elements.searchSection.style.display = 'block';
                 state.nextPageToken = null;
                 searchVideos(state.searchQuery);
             } else {
+                elements.trendingSection.style.display = 'block';
                 loadTrendingVideos();
             }
         }
