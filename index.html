@@ -2088,7 +2088,7 @@
                 const title = video.title;
                 const channel = video.channel;
                 
-                const channelInitials = channel.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                const channelInitials = channel ? channel.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '??';
                 
                 return `
                     <div class="video-card" onclick="openVideo('${videoId}')">
@@ -2141,10 +2141,20 @@
                 showMessage('⚠️ Lütfen bir arama terimi girin');
                 return;
             }
-            
+
+            // YouTube link kontrolü
+            const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
+            const match = query.match(youtubeRegex);
+
+            if (match) {
+                const videoId = match[1];
+                openVideo(videoId);
+                return;
+            }
+
             try {
                 document.getElementById('videoGrid').innerHTML = '<div class="loading"><div class="spinner"></div>Aranıyor...</div>';
-                
+
                 const response = await fetch(
                     `${API_BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=24&key=${API_KEY}`
                 );
@@ -2186,7 +2196,7 @@
                 const channel = video.snippet?.channelTitle || video.snippet.channelTitle;
                 const views = video.statistics?.viewCount || '0';
                 
-                const channelInitials = channel.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                const channelInitials = channel ? channel.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '??';
                 
                 return `
                     <div class="video-card" onclick="openVideo('${videoId}')">
