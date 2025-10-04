@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VidFlow - Modern Video Platform</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🎬</text></svg>">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -1305,6 +1311,190 @@
                 transform: translateX(0) translateY(0);
             }
         }
+
+        /* User Profile Section */
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .user-profile:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .user-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .user-status {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .sync-status {
+            font-size: 16px;
+            animation: rotate 2s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Login Modal */
+        .login-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-modal.active {
+            display: flex;
+        }
+
+        .login-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 48px;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .login-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 16px 32px;
+            background: white;
+            color: #333;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+
+        .login-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-btn img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .login-features {
+            margin-top: 32px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+            text-align: left;
+        }
+
+        .login-feature {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .login-feature-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
     </style>
 </head>
 <body>
@@ -1344,19 +1534,33 @@
 
         <nav class="nav-section">
             <div class="nav-title">Kütüphane</div>
-            <a class="nav-item" onclick="showMessage('İzleme geçmişi yakında eklenecek!')">
+            <a class="nav-item" onclick="showWatchHistory(); setActiveNav(this)">
                 <span class="nav-icon">📺</span>
                 İzlenenler
+                <span id="historyCount" style="margin-left: auto; font-size: 11px; opacity: 0.5;"></span>
             </a>
-            <a class="nav-item" onclick="showMessage('Beğenilen videolar yakında eklenecek!')">
+            <a class="nav-item" onclick="showLikedVideos(); setActiveNav(this)">
                 <span class="nav-icon">👍</span>
                 Beğenilenler
+                <span id="likedCount" style="margin-left: auto; font-size: 11px; opacity: 0.5;"></span>
             </a>
-            <a class="nav-item" onclick="showMessage('Kaydedilen videolar yakında eklenecek!')">
+            <a class="nav-item" onclick="showSavedVideos(); setActiveNav(this)">
                 <span class="nav-icon">💾</span>
                 Kaydedilenler
+                <span id="savedCount" style="margin-left: auto; font-size: 11px; opacity: 0.5;"></span>
             </a>
         </nav>
+
+        <!-- User Profile Section -->
+        <div style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border);" id="userProfileSection">
+            <div class="user-profile" id="userProfile" onclick="showLoginModal()">
+                <div class="user-avatar">👤</div>
+                <div class="user-info">
+                    <div class="user-name">Giriş Yap</div>
+                    <div class="user-status">Senkronizasyon için</div>
+                </div>
+            </div>
+        </div>
 
         <nav class="nav-section">
             <div class="nav-title">Özel Özellikler</div>
@@ -1444,7 +1648,7 @@
                             <button class="action-btn" id="modalLikeBtn" onclick="toggleLike()">
                                 👍 <span id="modalLikes">0</span>
                             </button>
-                            <button class="action-btn" onclick="showMessage('💾 Video kaydedildi!')">💾 Kaydet</button>
+                            <button class="action-btn" id="modalSaveBtn" onclick="toggleSaveVideo()">💾 Kaydet</button>
                             <button class="action-btn" onclick="shareVideo()">📤 Paylaş</button>
                             <button class="action-btn" onclick="toggleMiniPlayer()">📺 Mini Mod</button>
                         </div>
@@ -1489,9 +1693,71 @@
         <div class="mini-video" id="miniVideo"></div>
     </div>
 
+    <!-- Login Modal -->
+    <div class="login-modal" id="loginModal">
+        <div class="login-content">
+            <div class="login-logo">🎬</div>
+            <h2 class="login-title">VidFlow'a Hoş Geldiniz</h2>
+            <p class="login-subtitle">
+                Tüm cihazlarınızda senkronize bir video deneyimi için Google hesabınızla giriş yapın.
+            </p>
+            
+            <button class="login-btn" onclick="loginWithGoogle()">
+                <svg width="24" height="24" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Google ile Giriş Yap
+            </button>
+
+            <div class="login-features">
+                <div class="login-feature">
+                    <div class="login-feature-icon">🔄</div>
+                    <div>Tüm cihazlarınızda otomatik senkronizasyon</div>
+                </div>
+                <div class="login-feature">
+                    <div class="login-feature-icon">📺</div>
+                    <div>İzleme geçmişiniz her yerde</div>
+                </div>
+                <div class="login-feature">
+                    <div class="login-feature-icon">💾</div>
+                    <div>Kaydedilen ve beğenilen videolar</div>
+                </div>
+                <div class="login-feature">
+                    <div class="login-feature-icon">🔒</div>
+                    <div>Güvenli ve özel</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_KEY = 'AIzaSyCC0F6nmwpMoxt4bghLAaxUwo2V4QwxuLI';
         const API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCMzU8PV4hsSvxiqeDTKje5dji4p7AZZe0",
+            authDomain: "vidflow-sync.firebaseapp.com",
+            databaseURL: "https://vidflow-sync-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "vidflow-sync",
+            storageBucket: "vidflow-sync.firebasestorage.app",
+            messagingSenderId: "771848521591",
+            appId: "1:771848521591:web:595ba93fa950778b760372",
+            measurementId: "G-18B8P945PC"
+        };
+
+        // Initialize Firebase
+        let firebaseApp, auth, database;
+        try {
+            firebaseApp = firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            database = firebase.database();
+        } catch (error) {
+            console.log("Firebase başlatılamadı, yerel mod aktif:", error);
+        }
 
         let state = {
             videos: [],
@@ -1501,11 +1767,22 @@
             miniPlayerActive: false,
             adBlock: true,
             backgroundPlay: false,
-            currentFilter: 'all'
+            currentFilter: 'all',
+            user: null,
+            watchHistory: [],
+            likedVideos: [],
+            savedVideos: [],
+            syncEnabled: false
         };
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize auth listener
+            if (auth) {
+                auth.onAuthStateChanged(handleAuthStateChanged);
+            }
+            
             loadTrendingVideos();
+            loadLocalData();
             
             // Welcome message
             setTimeout(() => {
@@ -1516,6 +1793,325 @@
                 if (e.key === 'Enter') searchVideos();
             });
         });
+
+        // ========================================
+        // FIREBASE AUTHENTICATION & SYNC
+        // ========================================
+
+        function handleAuthStateChanged(user) {
+            if (user) {
+                state.user = user;
+                state.syncEnabled = true;
+                updateUserProfile(user);
+                syncFromFirebase();
+                showMessage(`✅ Hoş geldiniz, ${user.displayName}!`);
+            } else {
+                state.user = null;
+                state.syncEnabled = false;
+                updateUserProfile(null);
+                loadLocalData();
+            }
+            updateLibraryCounts();
+        }
+
+        function updateUserProfile(user) {
+            const profileSection = document.getElementById('userProfile');
+            
+            if (user) {
+                const initials = user.displayName ? user.displayName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '👤';
+                profileSection.innerHTML = `
+                    <div class="user-avatar">${user.photoURL ? `<img src="${user.photoURL}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}</div>
+                    <div class="user-info">
+                        <div class="user-name">${user.displayName || 'Kullanıcı'}</div>
+                        <div class="user-status">
+                            <span class="sync-status">🔄</span> Senkronize
+                        </div>
+                    </div>
+                    <button class="logout-btn" onclick="event.stopPropagation(); logoutUser()">Çıkış</button>
+                `;
+                profileSection.onclick = null;
+            } else {
+                profileSection.innerHTML = `
+                    <div class="user-avatar">👤</div>
+                    <div class="user-info">
+                        <div class="user-name">Giriş Yap</div>
+                        <div class="user-status">Senkronizasyon için</div>
+                    </div>
+                `;
+                profileSection.onclick = showLoginModal;
+            }
+        }
+
+        function showLoginModal() {
+            document.getElementById('loginModal').classList.add('active');
+        }
+
+        function hideLoginModal() {
+            document.getElementById('loginModal').classList.remove('active');
+        }
+
+        async function loginWithGoogle() {
+            if (!auth) {
+                showMessage('⚠️ Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.');
+                return;
+            }
+            
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.addScope('profile');
+                provider.addScope('email');
+                
+                await auth.signInWithPopup(provider);
+                hideLoginModal();
+            } catch (error) {
+                console.error('Giriş hatası:', error);
+                if (error.code === 'auth/popup-closed-by-user') {
+                    showMessage('⚠️ Giriş penceresi kapatıldı');
+                } else {
+                    showMessage('⚠️ Giriş yapılamadı: ' + error.message);
+                }
+            }
+        }
+
+        async function logoutUser() {
+            if (!auth) return;
+            
+            try {
+                await auth.signOut();
+                showMessage('👋 Çıkış yapıldı');
+                // Clear local data
+                state.watchHistory = [];
+                state.likedVideos = [];
+                state.savedVideos = [];
+                updateLibraryCounts();
+            } catch (error) {
+                console.error('Çıkış hatası:', error);
+                showMessage('⚠️ Çıkış yapılamadı');
+            }
+        }
+
+        // ========================================
+        // DATA SYNCHRONIZATION
+        // ========================================
+
+        function syncToFirebase(dataType, data) {
+            if (!state.syncEnabled || !state.user || !database) return;
+            
+            const userRef = database.ref(`users/${state.user.uid}/${dataType}`);
+            userRef.set(data).catch(error => {
+                console.error('Senkronizasyon hatası:', error);
+            });
+        }
+
+        async function syncFromFirebase() {
+            if (!state.syncEnabled || !state.user || !database) return;
+            
+            try {
+                const userRef = database.ref(`users/${state.user.uid}`);
+                const snapshot = await userRef.once('value');
+                const data = snapshot.val();
+                
+                if (data) {
+                    state.watchHistory = data.watchHistory || [];
+                    state.likedVideos = data.likedVideos || [];
+                    state.savedVideos = data.savedVideos || [];
+                    
+                    // Save to local storage as backup
+                    saveLocalData();
+                    updateLibraryCounts();
+                    
+                    showMessage('🔄 Verileriniz senkronize edildi!');
+                }
+            } catch (error) {
+                console.error('Veri yükleme hatası:', error);
+                showMessage('⚠️ Veriler yüklenirken hata oluştu');
+            }
+        }
+
+        function saveLocalData() {
+            localStorage.setItem('watchHistory', JSON.stringify(state.watchHistory));
+            localStorage.setItem('likedVideos', JSON.stringify(state.likedVideos));
+            localStorage.setItem('savedVideos', JSON.stringify(state.savedVideos));
+        }
+
+        function loadLocalData() {
+            try {
+                state.watchHistory = JSON.parse(localStorage.getItem('watchHistory') || '[]');
+                state.likedVideos = JSON.parse(localStorage.getItem('likedVideos') || '[]');
+                state.savedVideos = JSON.parse(localStorage.getItem('savedVideos') || '[]');
+                updateLibraryCounts();
+            } catch (error) {
+                console.error('Yerel veri yükleme hatası:', error);
+            }
+        }
+
+        function updateLibraryCounts() {
+            const historyCount = document.getElementById('historyCount');
+            const likedCount = document.getElementById('likedCount');
+            const savedCount = document.getElementById('savedCount');
+            
+            if (historyCount) historyCount.textContent = state.watchHistory.length > 0 ? state.watchHistory.length : '';
+            if (likedCount) likedCount.textContent = state.likedVideos.length > 0 ? state.likedVideos.length : '';
+            if (savedCount) savedCount.textContent = state.savedVideos.length > 0 ? state.savedVideos.length : '';
+        }
+
+        // ========================================
+        // USER DATA MANAGEMENT
+        // ========================================
+
+        function addToWatchHistory(video) {
+            const videoData = {
+                id: video.id,
+                title: video.snippet.title,
+                thumbnail: video.snippet.thumbnails.medium.url,
+                channel: video.snippet.channelTitle,
+                timestamp: Date.now()
+            };
+            
+            // Remove if already exists
+            state.watchHistory = state.watchHistory.filter(v => v.id !== videoData.id);
+            // Add to beginning
+            state.watchHistory.unshift(videoData);
+            // Keep only last 100
+            state.watchHistory = state.watchHistory.slice(0, 100);
+            
+            saveLocalData();
+            if (state.syncEnabled) {
+                syncToFirebase('watchHistory', state.watchHistory);
+            }
+            updateLibraryCounts();
+        }
+
+        function toggleVideoLike(video) {
+            const videoData = {
+                id: video.id,
+                title: video.snippet.title,
+                thumbnail: video.snippet.thumbnails.medium.url,
+                channel: video.snippet.channelTitle,
+                timestamp: Date.now()
+            };
+            
+            const index = state.likedVideos.findIndex(v => v.id === videoData.id);
+            if (index >= 0) {
+                state.likedVideos.splice(index, 1);
+                state.liked = false;
+            } else {
+                state.likedVideos.unshift(videoData);
+                state.liked = true;
+            }
+            
+            saveLocalData();
+            if (state.syncEnabled) {
+                syncToFirebase('likedVideos', state.likedVideos);
+            }
+            updateLibraryCounts();
+            return state.liked;
+        }
+
+        function toggleVideoSave(video) {
+            const videoData = {
+                id: video.id,
+                title: video.snippet.title,
+                thumbnail: video.snippet.thumbnails.medium.url,
+                channel: video.snippet.channelTitle,
+                timestamp: Date.now()
+            };
+            
+            const index = state.savedVideos.findIndex(v => v.id === videoData.id);
+            let isSaved;
+            if (index >= 0) {
+                state.savedVideos.splice(index, 1);
+                isSaved = false;
+            } else {
+                state.savedVideos.unshift(videoData);
+                isSaved = true;
+            }
+            
+            saveLocalData();
+            if (state.syncEnabled) {
+                syncToFirebase('savedVideos', state.savedVideos);
+            }
+            updateLibraryCounts();
+            return isSaved;
+        }
+
+        function isVideoLiked(videoId) {
+            return state.likedVideos.some(v => v.id === videoId);
+        }
+
+        function isVideoSaved(videoId) {
+            return state.savedVideos.some(v => v.id === videoId);
+        }
+
+        // ========================================
+        // LIBRARY VIEWS
+        // ========================================
+
+        function showWatchHistory() {
+            if (state.watchHistory.length === 0) {
+                showMessage('📺 Henüz izleme geçmişiniz yok');
+                return;
+            }
+            
+            document.getElementById('sectionTitle').innerHTML = '📺 İzleme Geçmişi';
+            renderLibraryVideos(state.watchHistory);
+            closeMobileSidebar();
+        }
+
+        function showLikedVideos() {
+            if (state.likedVideos.length === 0) {
+                showMessage('👍 Henüz beğendiğiniz video yok');
+                return;
+            }
+            
+            document.getElementById('sectionTitle').innerHTML = '👍 Beğenilen Videolar';
+            renderLibraryVideos(state.likedVideos);
+            closeMobileSidebar();
+        }
+
+        function showSavedVideos() {
+            if (state.savedVideos.length === 0) {
+                showMessage('💾 Henüz kaydettiğiniz video yok');
+                return;
+            }
+            
+            document.getElementById('sectionTitle').innerHTML = '💾 Kaydedilen Videolar';
+            renderLibraryVideos(state.savedVideos);
+            closeMobileSidebar();
+        }
+
+        function renderLibraryVideos(videos) {
+            const container = document.getElementById('videoGrid');
+            container.innerHTML = videos.map(video => {
+                const videoId = video.id;
+                const thumbnail = video.thumbnail;
+                const title = video.title;
+                const channel = video.channel;
+                
+                const channelInitials = channel.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                
+                return `
+                    <div class="video-card" onclick="openVideo('${videoId}')">
+                        <div class="video-thumbnail-wrapper">
+                            <img src="${thumbnail}" alt="${title}" class="video-thumbnail">
+                            <div class="video-overlay">
+                                <div class="play-button">▶️</div>
+                            </div>
+                            <div class="video-duration">▶️</div>
+                        </div>
+                        <div class="video-info">
+                            <h3 class="video-title">${title}</h3>
+                            <div class="video-meta">
+                                <div class="channel-info">
+                                    <div class="channel-avatar">${channelInitials}</div>
+                                    <span class="channel-name">${channel}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
 
         async function loadTrendingVideos() {
             try {
@@ -1619,10 +2215,6 @@
         }
 
         async function openVideo(videoId) {
-            // Reset states
-            state.liked = false;
-            state.subscribed = false;
-            
             // Close mobile sidebar if open
             if (window.innerWidth <= 1024) {
                 closeMobileSidebar();
@@ -1654,13 +2246,36 @@
                     const video = data.items[0];
                     state.currentVideo = video;
                     
+                    // Add to watch history
+                    addToWatchHistory(video);
+                    
+                    // Check if video is liked or saved
+                    state.liked = isVideoLiked(videoId);
+                    
                     document.getElementById('modalTitle').textContent = video.snippet.title;
                     document.getElementById('modalViews').textContent = formatViews(video.statistics.viewCount);
                     document.getElementById('modalDate').textContent = formatDate(video.snippet.publishedAt);
                     document.getElementById('modalLikes').textContent = formatViews(video.statistics.likeCount);
                     
-                    // Reset buttons
-                    document.getElementById('modalLikeBtn').classList.remove('active');
+                    // Update buttons based on state
+                    const likeBtn = document.getElementById('modalLikeBtn');
+                    if (state.liked) {
+                        likeBtn.classList.add('active');
+                    } else {
+                        likeBtn.classList.remove('active');
+                    }
+                    
+                    const saveBtn = document.getElementById('modalSaveBtn');
+                    if (isVideoSaved(videoId)) {
+                        saveBtn.classList.add('active');
+                        saveBtn.innerHTML = '✓ Kaydedildi';
+                    } else {
+                        saveBtn.classList.remove('active');
+                        saveBtn.innerHTML = '💾 Kaydet';
+                    }
+                    
+                    // Reset subscribe button
+                    state.subscribed = false;
                     document.getElementById('modalSubscribeBtn').textContent = 'Abone Ol';
                     document.getElementById('modalSubscribeBtn').classList.remove('subscribed');
                     
@@ -1821,14 +2436,34 @@
         }
 
         function toggleLike() {
-            state.liked = !state.liked;
-            const btn = document.getElementById('modalLikeBtn');
-            btn.classList.toggle('active');
+            if (!state.currentVideo) return;
             
-            if (state.liked) {
+            const liked = toggleVideoLike(state.currentVideo);
+            const btn = document.getElementById('modalLikeBtn');
+            
+            if (liked) {
+                btn.classList.add('active');
                 showMessage('👍 Videoyu beğendiniz!');
             } else {
+                btn.classList.remove('active');
                 showMessage('Beğeni geri alındı');
+            }
+        }
+
+        function toggleSaveVideo() {
+            if (!state.currentVideo) return;
+            
+            const saved = toggleVideoSave(state.currentVideo);
+            const btn = document.getElementById('modalSaveBtn');
+            
+            if (saved) {
+                btn.classList.add('active');
+                btn.innerHTML = '✓ Kaydedildi';
+                showMessage('💾 Video kaydedildi!');
+            } else {
+                btn.classList.remove('active');
+                btn.innerHTML = '💾 Kaydet';
+                showMessage('Video kayıtlardan çıkarıldı');
             }
         }
 
