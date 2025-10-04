@@ -2052,9 +2052,12 @@
                 showMessage('📺 Henüz izleme geçmişiniz yok');
                 return;
             }
-            
-            document.getElementById('sectionTitle').innerHTML = '📺 İzleme Geçmişi';
-            renderLibraryVideos(state.watchHistory);
+
+            document.getElementById('sectionTitle').innerHTML = `
+                📺 İzleme Geçmişi
+                <button onclick="clearAllWatchHistory()" style="margin-left: 16px; padding: 8px 16px; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.background='#ef4444'; this.style.color='white'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'">🗑️ Tümünü Sil</button>
+            `;
+            renderLibraryVideos(state.watchHistory, 'history');
             closeMobileSidebar();
         }
 
@@ -2080,18 +2083,28 @@
             closeMobileSidebar();
         }
 
-        function renderLibraryVideos(videos) {
+        function renderLibraryVideos(videos, type) {
             const container = document.getElementById('videoGrid');
             container.innerHTML = videos.map(video => {
                 const videoId = video.id;
                 const thumbnail = video.thumbnail;
                 const title = video.title;
                 const channel = video.channel;
-                
+
                 const channelInitials = channel ? channel.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '??';
-                
+
+                const deleteButton = type === 'history' ? `
+                    <button onclick="event.stopPropagation(); removeFromHistory('${videoId}')"
+                            style="position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 50%; color: #ef4444; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.3s ease; z-index: 10;"
+                            onmouseover="this.style.background='#ef4444'; this.style.color='white'; this.style.transform='scale(1.1)'"
+                            onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#ef4444'; this.style.transform='scale(1)'">
+                        ✕
+                    </button>
+                ` : '';
+
                 return `
-                    <div class="video-card" onclick="openVideo('${videoId}')">
+                    <div class="video-card" onclick="openVideo('${videoId}')" onmouseenter="this.querySelector('button')?.style.setProperty('opacity', '1')" onmouseleave="this.querySelector('button')?.style.setProperty('opacity', '0')">
+                        ${deleteButton}
                         <div class="video-thumbnail-wrapper">
                             <img src="${thumbnail}" alt="${title}" class="video-thumbnail">
                             <div class="video-overlay">
@@ -2736,6 +2749,40 @@
             }).catch(() => {
                 showMessage('Link kopyalanamadı');
             });
+        }
+
+        // ========================================
+        // WATCH HISTORY DELETE FUNCTIONS
+        // ========================================
+
+        function removeFromHistory(videoId) {
+            state.watchHistory = state.watchHistory.filter(v => v.id !== videoId);
+            saveLocalData();
+            if (state.syncEnabled) {
+                syncToFirebase('watchHistory', state.watchHistory);
+            }
+            updateLibraryCounts();
+            showWatchHistory();
+            showMessage('🗑️ Video geçmişten silindi');
+        }
+
+        function clearAllWatchHistory() {
+            if (state.watchHistory.length === 0) {
+                showMessage('📺 Geçmiş zaten boş');
+                return;
+            }
+
+            if (confirm(`🗑️ Tüm izleme geçmişini silmek istediğinize emin misiniz?\n\n${state.watchHistory.length} video silinecek.`)) {
+                state.watchHistory = [];
+                saveLocalData();
+                if (state.syncEnabled) {
+                    syncToFirebase('watchHistory', state.watchHistory);
+                }
+                updateLibraryCounts();
+                document.getElementById('videoGrid').innerHTML = '<div class="loading">📺 İzleme geçmişiniz temizlendi</div>';
+                document.getElementById('sectionTitle').innerHTML = '📺 İzleme Geçmişi';
+                showMessage('✅ Tüm izleme geçmişi temizlendi');
+            }
         }
     </script>
 </body>
