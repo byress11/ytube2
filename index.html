@@ -10,6 +10,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+    <!-- DOMPurify for XSS Protection -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js" integrity="sha512-HKh8LfexpzxviMA0rvD8NCkBNXLhnt8yLLw0kMGJZCXc5P3W/FqrVl/YNw5gMj96p9Z+JXqN7dPCtRp6ecTqwg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     
     <style>
         * {
@@ -188,9 +191,16 @@
         }
 
         .search-input:focus {
-            outline: none;
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
             border-color: var(--primary);
             box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.1);
+        }
+
+        /* Accessibility - Focus Indicators */
+        *:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
         }
 
         .search-btn {
@@ -1584,20 +1594,20 @@
         <!-- Top Bar -->
         <div class="top-bar">
             <div class="top-bar-content">
-                <button class="mobile-menu-btn" onclick="toggleMobileSidebar()">☰</button>
-                
+                <button class="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Menüyü aç">☰</button>
+
                 <div class="search-container">
-                    <input type="text" class="search-input" placeholder="Videolarda ara..." id="searchInput">
-                    <button class="search-btn" onclick="searchVideos()">🔍</button>
+                    <input type="text" class="search-input" placeholder="Videolarda ara..." id="searchInput" aria-label="Video ara">
+                    <button class="search-btn" onclick="searchVideos()" aria-label="Ara">🔍</button>
                 </div>
 
                 <div class="top-actions">
-                    <button class="action-icon active" title="Reklam Engelleme" id="adBlockIcon" onclick="toggleAdBlock()">
-                        <span class="badge">✓</span>
+                    <button class="action-icon active" title="Reklam Engelleme" id="adBlockIcon" onclick="toggleAdBlock()" aria-label="Reklam engelleme" aria-pressed="true">
+                        <span class="badge" aria-hidden="true">✓</span>
                         🛡️
                     </button>
-                    <button class="action-icon" title="Mini Mod" id="miniModeIcon" onclick="showMiniPlayerInfo()">📺</button>
-                    <button class="action-icon" title="Bildirimler" onclick="showNotifications()">🔔</button>
+                    <button class="action-icon" title="Mini Mod" id="miniModeIcon" onclick="showMiniPlayerInfo()" aria-label="Mini mod">📺</button>
+                    <button class="action-icon" title="Bildirimler" onclick="showNotifications()" aria-label="Bildirimler">🔔</button>
                 </div>
             </div>
         </div>
@@ -1734,10 +1744,14 @@
     </div>
 
     <script>
+        // ⚠️ SECURITY WARNING: API keys should be moved to environment variables
+        // TODO: Create a backend proxy server to hide these keys
+        // For production: Use server-side API calls with environment variables
         const API_KEY = 'AIzaSyCC0F6nmwpMoxt4bghLAaxUwo2V4QwxuLI';
         const API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
         // Firebase Configuration
+        // ⚠️ TODO: Move to environment variables in production
         const firebaseConfig = {
             apiKey: "AIzaSyCMzU8PV4hsSvxiqeDTKje5dji4p7AZZe0",
             authDomain: "vidflow-sync.firebaseapp.com",
@@ -1749,16 +1763,45 @@
             measurementId: "G-18B8P945PC"
         };
 
-        // Initialize Firebase
+        // Constants
+        const CONSTANTS = {
+            CACHE_TTL: 5 * 60 * 1000, // 5 minutes
+            DEBOUNCE_DELAY: 500,
+            MAX_WATCH_HISTORY: 100,
+            RETRY_ATTEMPTS: 3,
+            RETRY_DELAY: 1000,
+            VIDEO_ID_REGEX: /^[a-zA-Z0-9_-]{11}$/,
+            YOUTUBE_LINK_REGEX: /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/
+        };
+
+        // Initialize Firebase with error handling
         let firebaseApp, auth, database;
+        let isFirebaseAvailable = false;
         try {
-            firebaseApp = firebase.initializeApp(firebaseConfig);
-            auth = firebase.auth();
-            database = firebase.database();
+            if (typeof firebase !== 'undefined') {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                database = firebase.database();
+                isFirebaseAvailable = true;
+                console.log("✅ Firebase initialized successfully");
+            }
         } catch (error) {
-            console.log("Firebase başlatılamadı, yerel mod aktif:", error);
+            console.warn("⚠️ Firebase initialization failed, running in local mode:", error);
+            isFirebaseAvailable = false;
         }
 
+        // Global error handlers
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            showMessage('⚠️ Bir hata oluştu. Lütfen sayfayı yenileyin.');
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            showMessage('⚠️ İşlem başarısız oldu.');
+        });
+
+        // Application State (encapsulated)
         let state = {
             videos: [],
             currentVideo: null,
@@ -1772,27 +1815,195 @@
             watchHistory: [],
             likedVideos: [],
             savedVideos: [],
-            syncEnabled: false
+            syncEnabled: false,
+            currentRequestId: 0, // For race condition prevention
+            searchTimeout: null, // For debouncing
+            cache: {
+                trending: { data: null, timestamp: 0 },
+                searches: {},
+                categories: {}
+            }
         };
 
+        // Optimized lookup Sets for O(1) performance
+        let likedVideoIds = new Set();
+        let savedVideoIds = new Set();
+
+        // Utility Functions
+        function sanitizeHTML(html) {
+            return DOMPurify.sanitize(html, {
+                ALLOWED_TAGS: [],
+                KEEP_CONTENT: true
+            });
+        }
+
+        function createTextNode(text) {
+            return document.createTextNode(text || '');
+        }
+
+        function validateVideoId(videoId) {
+            if (!videoId || typeof videoId !== 'string') {
+                return false;
+            }
+            return CONSTANTS.VIDEO_ID_REGEX.test(videoId);
+        }
+
+        async function fetchWithRetry(url, retries = CONSTANTS.RETRY_ATTEMPTS) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    const delay = CONSTANTS.RETRY_DELAY * Math.pow(2, i);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        async function fetchYouTubeAPI(endpoint, params) {
+            const url = new URL(`${API_BASE_URL}/${endpoint}`);
+            Object.entries(params).forEach(([key, value]) => {
+                url.searchParams.append(key, value);
+            });
+            url.searchParams.append('key', API_KEY);
+
+            const response = await fetchWithRetry(url.toString());
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(`YouTube API Error: ${data.error.message}`);
+            }
+
+            return data;
+        }
+
+        function updateLookupSets() {
+            likedVideoIds = new Set(state.likedVideos.map(v => v.id));
+            savedVideoIds = new Set(state.savedVideos.map(v => v.id));
+        }
+
+        function isVideoLiked(videoId) {
+            return likedVideoIds.has(videoId);
+        }
+
+        function isVideoSaved(videoId) {
+            return savedVideoIds.has(videoId);
+        }
+
+        // Simple encryption for localStorage (basic obfuscation)
+        function encryptData(data) {
+            try {
+                return btoa(encodeURIComponent(JSON.stringify(data)));
+            } catch {
+                return JSON.stringify(data);
+            }
+        }
+
+        function decryptData(encrypted) {
+            try {
+                return JSON.parse(decodeURIComponent(atob(encrypted)));
+            } catch {
+                try {
+                    return JSON.parse(encrypted);
+                } catch {
+                    return null;
+                }
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize auth listener
-            if (auth) {
+            // Initialize auth listener only if Firebase is available
+            if (isFirebaseAvailable && auth) {
                 auth.onAuthStateChanged(handleAuthStateChanged);
             }
-            
+
             loadTrendingVideos();
             loadLocalData();
-            
+
             // Welcome message
             setTimeout(() => {
                 showMessage('🎬 VidFlow\'a hoş geldiniz! Modern video deneyiminin tadını çıkarın.');
             }, 1000);
-            
-            document.getElementById('searchInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') searchVideos();
+
+            // Search with debouncing - both Enter key and input event
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', function(e) {
+                clearTimeout(state.searchTimeout);
+                const query = e.target.value.trim();
+                if (query.length >= 3) {
+                    state.searchTimeout = setTimeout(() => {
+                        searchVideos();
+                    }, CONSTANTS.DEBOUNCE_DELAY);
+                }
             });
+
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(state.searchTimeout);
+                    searchVideos();
+                }
+            });
+
+            // Event delegation for video grid
+            document.getElementById('videoGrid').addEventListener('click', handleVideoGridClick);
+
+            // Lazy loading for images
+            setupLazyLoading();
         });
+
+        // ========================================
+        // EVENT DELEGATION & LAZY LOADING
+        // ========================================
+
+        function handleVideoGridClick(e) {
+            const videoCard = e.target.closest('.video-card');
+            if (videoCard && !e.target.closest('button')) {
+                const videoId = videoCard.dataset.videoId;
+                if (videoId) {
+                    openVideo(videoId);
+                }
+            }
+
+            // Handle delete buttons in watch history
+            const deleteBtn = e.target.closest('[data-delete-video]');
+            if (deleteBtn) {
+                e.stopPropagation();
+                const videoId = deleteBtn.dataset.deleteVideo;
+                removeFromHistory(videoId);
+            }
+        }
+
+        let lazyLoadObserver;
+        function setupLazyLoading() {
+            if ('IntersectionObserver' in window) {
+                lazyLoadObserver = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            if (img.dataset.src) {
+                                img.src = img.dataset.src;
+                                img.removeAttribute('data-src');
+                                lazyLoadObserver.unobserve(img);
+                            }
+                        }
+                    });
+                }, {
+                    rootMargin: '50px'
+                });
+            }
+        }
+
+        function observeLazyImages() {
+            if (lazyLoadObserver) {
+                document.querySelectorAll('img[data-src]').forEach(img => {
+                    lazyLoadObserver.observe(img);
+                });
+            }
+        }
 
         // ========================================
         // FIREBASE AUTHENTICATION & SYNC
@@ -1804,7 +2015,8 @@
                 state.syncEnabled = true;
                 updateUserProfile(user);
                 syncFromFirebase();
-                showMessage(`✅ Hoş geldiniz, ${user.displayName}!`);
+                const displayName = sanitizeHTML(user.displayName || 'Kullanıcı');
+                showMessage(`✅ Hoş geldiniz, ${displayName}!`);
             } else {
                 state.user = null;
                 state.syncEnabled = false;
@@ -1812,23 +2024,55 @@
                 loadLocalData();
             }
             updateLibraryCounts();
+            updateLookupSets();
         }
 
         function updateUserProfile(user) {
             const profileSection = document.getElementById('userProfile');
-            
+            profileSection.innerHTML = ''; // Clear first
+
             if (user) {
+                const displayName = sanitizeHTML(user.displayName || 'Kullanıcı');
                 const initials = user.displayName ? user.displayName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '👤';
-                profileSection.innerHTML = `
-                    <div class="user-avatar">${user.photoURL ? `<img src="${user.photoURL}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">` : initials}</div>
-                    <div class="user-info">
-                        <div class="user-name">${user.displayName || 'Kullanıcı'}</div>
-                        <div class="user-status">
-                            <span class="sync-status">🔄</span> Senkronize
-                        </div>
-                    </div>
-                    <button class="logout-btn" onclick="event.stopPropagation(); logoutUser()">Çıkış</button>
-                `;
+
+                const avatar = document.createElement('div');
+                avatar.className = 'user-avatar';
+
+                if (user.photoURL) {
+                    const img = document.createElement('img');
+                    img.src = sanitizeHTML(user.photoURL);
+                    img.style.cssText = 'width: 100%; height: 100%; border-radius: 50%; object-fit: cover;';
+                    img.alt = 'User avatar';
+                    avatar.appendChild(img);
+                } else {
+                    avatar.textContent = initials;
+                }
+
+                const userInfo = document.createElement('div');
+                userInfo.className = 'user-info';
+
+                const userName = document.createElement('div');
+                userName.className = 'user-name';
+                userName.textContent = displayName;
+
+                const userStatus = document.createElement('div');
+                userStatus.className = 'user-status';
+                userStatus.innerHTML = '<span class="sync-status">🔄</span> Senkronize';
+
+                userInfo.appendChild(userName);
+                userInfo.appendChild(userStatus);
+
+                const logoutBtn = document.createElement('button');
+                logoutBtn.className = 'logout-btn';
+                logoutBtn.textContent = 'Çıkış';
+                logoutBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    logoutUser();
+                };
+
+                profileSection.appendChild(avatar);
+                profileSection.appendChild(userInfo);
+                profileSection.appendChild(logoutBtn);
                 profileSection.onclick = null;
             } else {
                 profileSection.innerHTML = `
@@ -1895,31 +2139,33 @@
         // ========================================
 
         function syncToFirebase(dataType, data) {
-            if (!state.syncEnabled || !state.user || !database) return;
-            
+            if (!isFirebaseAvailable || !state.syncEnabled || !state.user || !database) return;
+
             const userRef = database.ref(`users/${state.user.uid}/${dataType}`);
             userRef.set(data).catch(error => {
                 console.error('Senkronizasyon hatası:', error);
+                showMessage('⚠️ Senkronizasyon hatası');
             });
         }
 
         async function syncFromFirebase() {
-            if (!state.syncEnabled || !state.user || !database) return;
-            
+            if (!isFirebaseAvailable || !state.syncEnabled || !state.user || !database) return;
+
             try {
                 const userRef = database.ref(`users/${state.user.uid}`);
                 const snapshot = await userRef.once('value');
                 const data = snapshot.val();
-                
+
                 if (data) {
-                    state.watchHistory = data.watchHistory || [];
-                    state.likedVideos = data.likedVideos || [];
-                    state.savedVideos = data.savedVideos || [];
-                    
+                    state.watchHistory = Array.isArray(data.watchHistory) ? data.watchHistory : [];
+                    state.likedVideos = Array.isArray(data.likedVideos) ? data.likedVideos : [];
+                    state.savedVideos = Array.isArray(data.savedVideos) ? data.savedVideos : [];
+
                     // Save to local storage as backup
                     saveLocalData();
                     updateLibraryCounts();
-                    
+                    updateLookupSets();
+
                     showMessage('🔄 Verileriniz senkronize edildi!');
                 }
             } catch (error) {
@@ -1929,19 +2175,38 @@
         }
 
         function saveLocalData() {
-            localStorage.setItem('watchHistory', JSON.stringify(state.watchHistory));
-            localStorage.setItem('likedVideos', JSON.stringify(state.likedVideos));
-            localStorage.setItem('savedVideos', JSON.stringify(state.savedVideos));
+            try {
+                localStorage.setItem('watchHistory', encryptData(state.watchHistory));
+                localStorage.setItem('likedVideos', encryptData(state.likedVideos));
+                localStorage.setItem('savedVideos', encryptData(state.savedVideos));
+            } catch (error) {
+                console.error('Veri kaydetme hatası:', error);
+                showMessage('⚠️ Veriler kaydedilemedi');
+            }
         }
 
         function loadLocalData() {
             try {
-                state.watchHistory = JSON.parse(localStorage.getItem('watchHistory') || '[]');
-                state.likedVideos = JSON.parse(localStorage.getItem('likedVideos') || '[]');
-                state.savedVideos = JSON.parse(localStorage.getItem('savedVideos') || '[]');
+                const watchHistory = localStorage.getItem('watchHistory');
+                const likedVideos = localStorage.getItem('likedVideos');
+                const savedVideos = localStorage.getItem('savedVideos');
+
+                state.watchHistory = watchHistory ? (decryptData(watchHistory) || []) : [];
+                state.likedVideos = likedVideos ? (decryptData(likedVideos) || []) : [];
+                state.savedVideos = savedVideos ? (decryptData(savedVideos) || []) : [];
+
+                // Ensure arrays
+                state.watchHistory = Array.isArray(state.watchHistory) ? state.watchHistory : [];
+                state.likedVideos = Array.isArray(state.likedVideos) ? state.likedVideos : [];
+                state.savedVideos = Array.isArray(state.savedVideos) ? state.savedVideos : [];
+
                 updateLibraryCounts();
+                updateLookupSets();
             } catch (error) {
                 console.error('Yerel veri yükleme hatası:', error);
+                state.watchHistory = [];
+                state.likedVideos = [];
+                state.savedVideos = [];
             }
         }
 
@@ -1960,21 +2225,23 @@
         // ========================================
 
         function addToWatchHistory(video) {
+            if (!video || !video.id) return;
+
             const videoData = {
                 id: video.id,
-                title: video.snippet.title,
-                thumbnail: video.snippet.thumbnails.medium.url,
-                channel: video.snippet.channelTitle,
+                title: sanitizeHTML(video.snippet.title),
+                thumbnail: sanitizeHTML(video.snippet.thumbnails.medium.url),
+                channel: sanitizeHTML(video.snippet.channelTitle),
                 timestamp: Date.now()
             };
-            
+
             // Remove if already exists
             state.watchHistory = state.watchHistory.filter(v => v.id !== videoData.id);
             // Add to beginning
             state.watchHistory.unshift(videoData);
-            // Keep only last 100
-            state.watchHistory = state.watchHistory.slice(0, 100);
-            
+            // Keep only last MAX_WATCH_HISTORY
+            state.watchHistory = state.watchHistory.slice(0, CONSTANTS.MAX_WATCH_HISTORY);
+
             saveLocalData();
             if (state.syncEnabled) {
                 syncToFirebase('watchHistory', state.watchHistory);
@@ -1983,14 +2250,16 @@
         }
 
         function toggleVideoLike(video) {
+            if (!video || !video.id) return false;
+
             const videoData = {
                 id: video.id,
-                title: video.snippet.title,
-                thumbnail: video.snippet.thumbnails.medium.url,
-                channel: video.snippet.channelTitle,
+                title: sanitizeHTML(video.snippet.title),
+                thumbnail: sanitizeHTML(video.snippet.thumbnails.medium.url),
+                channel: sanitizeHTML(video.snippet.channelTitle),
                 timestamp: Date.now()
             };
-            
+
             const index = state.likedVideos.findIndex(v => v.id === videoData.id);
             if (index >= 0) {
                 state.likedVideos.splice(index, 1);
@@ -1999,24 +2268,27 @@
                 state.likedVideos.unshift(videoData);
                 state.liked = true;
             }
-            
+
             saveLocalData();
             if (state.syncEnabled) {
                 syncToFirebase('likedVideos', state.likedVideos);
             }
             updateLibraryCounts();
+            updateLookupSets();
             return state.liked;
         }
 
         function toggleVideoSave(video) {
+            if (!video || !video.id) return false;
+
             const videoData = {
                 id: video.id,
-                title: video.snippet.title,
-                thumbnail: video.snippet.thumbnails.medium.url,
-                channel: video.snippet.channelTitle,
+                title: sanitizeHTML(video.snippet.title),
+                thumbnail: sanitizeHTML(video.snippet.thumbnails.medium.url),
+                channel: sanitizeHTML(video.snippet.channelTitle),
                 timestamp: Date.now()
             };
-            
+
             const index = state.savedVideos.findIndex(v => v.id === videoData.id);
             let isSaved;
             if (index >= 0) {
@@ -2026,21 +2298,14 @@
                 state.savedVideos.unshift(videoData);
                 isSaved = true;
             }
-            
+
             saveLocalData();
             if (state.syncEnabled) {
                 syncToFirebase('savedVideos', state.savedVideos);
             }
             updateLibraryCounts();
+            updateLookupSets();
             return isSaved;
-        }
-
-        function isVideoLiked(videoId) {
-            return state.likedVideos.some(v => v.id === videoId);
-        }
-
-        function isVideoSaved(videoId) {
-            return state.savedVideos.some(v => v.id === videoId);
         }
 
         // ========================================
@@ -2128,23 +2393,38 @@
 
         async function loadTrendingVideos() {
             try {
+                // Check cache first
+                const now = Date.now();
+                const cached = state.cache.trending;
+                if (cached.data && (now - cached.timestamp) < CONSTANTS.CACHE_TTL) {
+                    state.videos = cached.data;
+                    document.getElementById('sectionTitle').textContent = '🔥 Popüler Videolar';
+                    renderVideoGrid();
+                    return;
+                }
+
                 document.getElementById('videoGrid').innerHTML = '<div class="loading"><div class="spinner"></div>Videolar yükleniyor...</div>';
-                
-                const response = await fetch(
-                    `${API_BASE_URL}/videos?part=snippet,statistics&chart=mostPopular&maxResults=24&regionCode=TR&key=${API_KEY}`
-                );
-                const data = await response.json();
-                
-                if (data.items) {
+
+                const data = await fetchYouTubeAPI('videos', {
+                    part: 'snippet,statistics',
+                    chart: 'mostPopular',
+                    maxResults: '24',
+                    regionCode: 'TR'
+                });
+
+                if (data.items && data.items.length > 0) {
                     state.videos = data.items;
-                    document.getElementById('sectionTitle').innerHTML = '🔥 Popüler Videolar';
+                    state.cache.trending = { data: data.items, timestamp: now };
+                    document.getElementById('sectionTitle').textContent = '🔥 Popüler Videolar';
                     renderVideoGrid();
                     showMessage(`✅ ${data.items.length} popüler video yüklendi!`);
+                } else {
+                    document.getElementById('videoGrid').innerHTML = '<div class="loading">📺 Video bulunamadı</div>';
                 }
             } catch (error) {
                 console.error('Videolar yüklenemedi:', error);
                 document.getElementById('videoGrid').innerHTML = '<div class="loading">⚠️ Videolar yüklenirken bir hata oluştu</div>';
-                showMessage('⚠️ Videolar yüklenirken bir hata oluştu');
+                showMessage('⚠️ Videolar yüklenirken bir hata oluştu: ' + error.message);
             }
         }
 
@@ -2155,9 +2435,11 @@
                 return;
             }
 
-            // YouTube link kontrolü
-            const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/;
-            const match = query.match(youtubeRegex);
+            // Sanitize query
+            const sanitizedQuery = sanitizeHTML(query);
+
+            // YouTube link kontrolü with constant
+            const match = query.match(CONSTANTS.YOUTUBE_LINK_REGEX);
 
             if (match) {
                 const videoId = match[1];
@@ -2166,27 +2448,52 @@
             }
 
             try {
+                // Check cache
+                const cacheKey = `search_${sanitizedQuery}`;
+                const now = Date.now();
+                if (state.cache.searches[cacheKey] &&
+                    (now - state.cache.searches[cacheKey].timestamp) < CONSTANTS.CACHE_TTL) {
+                    state.videos = state.cache.searches[cacheKey].data;
+                    document.getElementById('sectionTitle').textContent = `🔍 "${sanitizedQuery}" için ${state.videos.length} sonuç`;
+                    renderVideoGrid();
+                    return;
+                }
+
                 document.getElementById('videoGrid').innerHTML = '<div class="loading"><div class="spinner"></div>Aranıyor...</div>';
 
-                const response = await fetch(
-                    `${API_BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=24&key=${API_KEY}`
-                );
-                const data = await response.json();
-                
+                const data = await fetchYouTubeAPI('search', {
+                    part: 'snippet',
+                    q: sanitizedQuery,
+                    type: 'video',
+                    maxResults: '24'
+                });
+
                 if (data.items && data.items.length > 0) {
-                    const videoIds = data.items.map(item => item.id.videoId).join(',');
-                    const statsResponse = await fetch(
-                        `${API_BASE_URL}/videos?part=statistics&id=${videoIds}&key=${API_KEY}`
-                    );
-                    const statsData = await statsResponse.json();
-                    
-                    state.videos = data.items.map((item, index) => ({
+                    const videoIds = data.items.map(item => item.id.videoId).filter(Boolean).join(',');
+
+                    const statsData = await fetchYouTubeAPI('videos', {
+                        part: 'statistics',
+                        id: videoIds
+                    });
+
+                    // FIX: Map by video ID instead of index to avoid mismatch
+                    const statsMap = {};
+                    if (statsData.items) {
+                        statsData.items.forEach(item => {
+                            statsMap[item.id] = item.statistics;
+                        });
+                    }
+
+                    state.videos = data.items.map(item => ({
                         id: item.id.videoId,
                         snippet: item.snippet,
-                        statistics: statsData.items[index]?.statistics || { viewCount: '0' }
+                        statistics: statsMap[item.id.videoId] || { viewCount: '0' }
                     }));
-                    
-                    document.getElementById('sectionTitle').innerHTML = `🔍 "${query}" için ${state.videos.length} sonuç`;
+
+                    state.cache.searches[cacheKey] = { data: state.videos, timestamp: now };
+
+                    const sectionTitle = document.getElementById('sectionTitle');
+                    sectionTitle.textContent = `🔍 "${sanitizedQuery}" için ${state.videos.length} sonuç`;
                     renderVideoGrid();
                     showMessage(`✅ ${state.videos.length} video bulundu!`);
                 } else {
@@ -2196,78 +2503,127 @@
             } catch (error) {
                 console.error('Arama hatası:', error);
                 document.getElementById('videoGrid').innerHTML = '<div class="loading">⚠️ Arama yapılırken bir hata oluştu</div>';
-                showMessage('⚠️ Arama yapılırken bir hata oluştu');
+                showMessage('⚠️ Arama yapılırken bir hata oluştu: ' + error.message);
             }
         }
 
         function renderVideoGrid() {
             const container = document.getElementById('videoGrid');
-            container.innerHTML = state.videos.map(video => {
+            container.innerHTML = ''; // Clear first
+
+            if (!state.videos || state.videos.length === 0) {
+                container.innerHTML = '<div class="loading">📺 Henüz video yok</div>';
+                return;
+            }
+
+            const fragment = document.createDocumentFragment();
+
+            state.videos.forEach(video => {
                 const videoId = video.id?.videoId || video.id;
-                const thumbnail = video.snippet?.thumbnails?.medium?.url || video.snippet.thumbnails.medium.url;
-                const title = video.snippet?.title || video.snippet.title;
-                const channel = video.snippet?.channelTitle || video.snippet.channelTitle;
+                if (!videoId) return;
+
+                const thumbnail = sanitizeHTML(video.snippet?.thumbnails?.medium?.url || video.snippet.thumbnails.medium.url);
+                const title = sanitizeHTML(video.snippet?.title || video.snippet.title);
+                const channel = sanitizeHTML(video.snippet?.channelTitle || video.snippet.channelTitle);
                 const views = video.statistics?.viewCount || '0';
-                
+
                 const channelInitials = channel ? channel.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase() : '??';
-                
-                return `
-                    <div class="video-card" onclick="openVideo('${videoId}')">
-                        <div class="video-thumbnail-wrapper">
-                            <img src="${thumbnail}" alt="${title}" class="video-thumbnail">
-                            <div class="video-overlay">
-                                <div class="play-button">▶️</div>
-                            </div>
-                            <div class="video-duration">▶️</div>
+
+                const card = document.createElement('div');
+                card.className = 'video-card';
+                card.dataset.videoId = videoId;
+
+                // Use data-src for lazy loading
+                const imgSrc = lazyLoadObserver ? '' : thumbnail;
+                const imgDataSrc = lazyLoadObserver ? thumbnail : '';
+
+                card.innerHTML = DOMPurify.sanitize(`
+                    <div class="video-thumbnail-wrapper">
+                        <img ${imgSrc ? `src="${imgSrc}"` : ''} ${imgDataSrc ? `data-src="${imgDataSrc}"` : ''} alt="${title}" class="video-thumbnail" loading="lazy">
+                        <div class="video-overlay">
+                            <div class="play-button">▶️</div>
                         </div>
-                        <div class="video-info">
-                            <h3 class="video-title">${title}</h3>
-                            <div class="video-meta">
-                                <div class="channel-info">
-                                    <div class="channel-avatar">${channelInitials}</div>
-                                    <span class="channel-name">${channel}</span>
-                                </div>
-                                <div class="video-stats">
-                                    <span>👁️ ${formatViews(views)}</span>
-                                </div>
+                        <div class="video-duration">▶️</div>
+                    </div>
+                    <div class="video-info">
+                        <h3 class="video-title">${title}</h3>
+                        <div class="video-meta">
+                            <div class="channel-info">
+                                <div class="channel-avatar">${channelInitials}</div>
+                                <span class="channel-name">${channel}</span>
+                            </div>
+                            <div class="video-stats">
+                                <span>👁️ ${formatViews(views)}</span>
                             </div>
                         </div>
                     </div>
-                `;
-            }).join('');
+                `, {
+                    ALLOWED_TAGS: ['div', 'img', 'h3', 'span'],
+                    ALLOWED_ATTR: ['class', 'src', 'data-src', 'alt', 'loading']
+                });
+
+                fragment.appendChild(card);
+            });
+
+            container.appendChild(fragment);
+            observeLazyImages();
         }
 
         async function openVideo(videoId) {
+            // Validate video ID
+            if (!validateVideoId(videoId)) {
+                showMessage('⚠️ Geçersiz video ID');
+                return;
+            }
+
+            // Race condition prevention: assign unique request ID
+            const requestId = ++state.currentRequestId;
+
             // Close mobile sidebar if open
             if (window.innerWidth <= 1024) {
                 closeMobileSidebar();
             }
-            
-            document.getElementById('videoModal').classList.add('active');
+
+            const modal = document.getElementById('videoModal');
+            modal.classList.add('active');
             document.body.style.overflow = 'hidden';
-            
+
             // Scroll modal to top
-            document.getElementById('videoModal').scrollTop = 0;
-            
+            modal.scrollTop = 0;
+
+            // Loading indicator
             const modalPlayer = document.getElementById('modalVideoPlayer');
-            modalPlayer.innerHTML = `
-                <iframe width="100%" height="100%" 
-                        src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
-                        frameborder="0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen>
-                </iframe>
-            `;
-            
+            modalPlayer.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #000;"><div class="spinner"></div></div>';
+
             try {
-                const response = await fetch(
-                    `${API_BASE_URL}/videos?part=snippet,statistics&id=${videoId}&key=${API_KEY}`
-                );
-                const data = await response.json();
-                
+                const data = await fetchYouTubeAPI('videos', {
+                    part: 'snippet,statistics',
+                    id: videoId
+                });
+
+                // Check if this request is still current
+                if (requestId !== state.currentRequestId) {
+                    console.log('Request cancelled - newer request exists');
+                    return;
+                }
+
                 if (data.items && data.items.length > 0) {
                     const video = data.items[0];
                     state.currentVideo = video;
+
+                    // Now load iframe
+                    modalPlayer.innerHTML = DOMPurify.sanitize(`
+                        <iframe width="100%" height="100%"
+                                src="https://www.youtube.com/embed/${videoId}?autoplay=1"
+                                frameborder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowfullscreen
+                                title="Video player">
+                        </iframe>
+                    `, {
+                        ALLOWED_TAGS: ['iframe'],
+                        ALLOWED_ATTR: ['width', 'height', 'src', 'frameborder', 'allow', 'allowfullscreen', 'title']
+                    });
                     
                     // Add to watch history
                     addToWatchHistory(video);
