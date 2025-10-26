@@ -1751,11 +1751,20 @@
     </div>
 
     <script>
-        // ⚠️ SECURITY WARNING: API keys should be moved to environment variables
-        // TODO: Create a backend proxy server to hide these keys
-        // For production: Use server-side API calls with environment variables
+        // ⚠️ CRITICAL SECURITY WARNING:
+        // API key is exposed in client-side code - This is a MAJOR security risk!
+        // IMMEDIATE ACTION REQUIRED:
+        // 1. Regenerate your API key in Google Cloud Console
+        // 2. Create a backend proxy server
+        // 3. Move API key to environment variables
+        // 4. Never commit API keys to version control
+
+        // TEMPORARY - Replace with backend proxy ASAP
         const API_KEY = 'AIzaSyCC0F6nmwpMoxt4bghLAaxUwo2V4QwxuLI';
         const API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
+
+        // TODO: Replace direct API calls with:
+        // const API_BASE_URL = '/api/youtube'; // Your backend proxy
 
         // Firebase Configuration
         // ⚠️ TODO: Move to environment variables in production
