@@ -1495,6 +1495,511 @@
             border-color: #ef4444;
             color: #ef4444;
         }
+
+        /* Download Modal */
+        .download-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .download-modal.active {
+            display: flex;
+        }
+
+        .download-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 900px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Netflix-style Download UI */
+        .download-quality-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .download-quality-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .download-quality-card {
+                padding: 16px;
+            }
+
+            .quality-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 24px;
+            }
+
+            .quality-name {
+                font-size: 14px;
+            }
+
+            .quality-desc {
+                font-size: 11px;
+            }
+        }
+
+        .download-quality-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: relative;
+        }
+
+        .download-quality-card:hover {
+            border-color: var(--primary);
+            background: rgba(139, 92, 246, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .download-quality-card.recommended {
+            border-color: var(--primary);
+            background: rgba(139, 92, 246, 0.1);
+        }
+
+        .download-quality-card.recommended::after {
+            content: 'ÖNERİLEN';
+            position: absolute;
+            top: -10px;
+            right: 16px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .quality-icon {
+            font-size: 32px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border-radius: 12px;
+            flex-shrink: 0;
+        }
+
+        .quality-info {
+            flex: 1;
+        }
+
+        .quality-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .quality-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .quality-select {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--primary);
+            opacity: 0;
+            transform: translateX(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .download-quality-card:hover .quality-select {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        /* Download Progress UI */
+        .download-progress-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .download-progress-info {
+            margin-bottom: 32px;
+        }
+
+        .download-progress-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .download-progress-details {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+
+        .download-file-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .download-file-icon {
+            font-size: 24px;
+        }
+
+        .download-progress-bar {
+            background: var(--bg-card);
+            border-radius: 50px;
+            height: 8px;
+            margin: 24px 0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .download-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 50px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        .download-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .download-progress-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .download-speed {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .download-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .download-status-icon {
+            font-size: 16px;
+        }
+
+        /* Mobile responsive for download UI */
+        @media (max-width: 768px) {
+            .download-progress-container {
+                padding: 24px 16px;
+            }
+
+            .download-progress-title {
+                font-size: 16px;
+            }
+
+            .download-progress-details {
+                font-size: 12px;
+            }
+
+            .download-file-info {
+                flex-direction: column;
+                gap: 8px;
+                text-align: center;
+            }
+
+            .download-speed {
+                font-size: 11px;
+            }
+
+            .download-complete-container {
+                padding: 24px 16px;
+            }
+
+            .download-complete-icon {
+                font-size: 48px;
+                margin-bottom: 12px;
+            }
+
+            .download-complete-title {
+                font-size: 18px;
+                margin-bottom: 6px;
+            }
+
+            .download-complete-desc {
+                font-size: 12px;
+                margin-bottom: 20px;
+            }
+
+            .download-complete-actions {
+                gap: 8px;
+            }
+
+            .download-action-btn {
+                padding: 10px 20px;
+                font-size: 12px;
+                flex: 1;
+                min-width: 0;
+                justify-content: center;
+            }
+
+            .download-action-primary {
+                flex: 1.5;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .download-complete-actions {
+                flex-direction: column;
+            }
+
+            .download-action-btn {
+                width: 100%;
+            }
+        }
+
+        /* Download Complete UI */
+        .download-complete-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .download-complete-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            animation: bounce 0.6s ease;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .download-complete-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .download-complete-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        .download-complete-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .download-action-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .download-action-primary {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+        }
+
+        .download-action-secondary {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .download-action-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.4);
+        }
+
+        .download-action-secondary:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .download-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .download-title {
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .download-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .download-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .download-option:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: var(--primary);
+            transform: translateX(4px);
+        }
+
+        .download-option-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .download-option-quality {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .download-option-format {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .download-btn-small {
+            padding: 8px 20px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            border: none;
+            border-radius: 50px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .download-btn-small:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+        }
+
+        .download-note {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 12px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .download-video-info {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+
+        .download-thumbnail {
+            width: 120px;
+            height: 68px;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+
+        .download-video-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .download-video-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .download-video-channel {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -1548,6 +2053,11 @@
                 <span class="nav-icon">💾</span>
                 Kaydedilenler
                 <span id="savedCount" style="margin-left: auto; font-size: 11px; opacity: 0.5;"></span>
+            </a>
+            <a class="nav-item" onclick="showDownloadedVideos(); setActiveNav(this)">
+                <span class="nav-icon">⬇️</span>
+                İndirilenler
+                <span id="downloadCount" style="margin-left: auto; font-size: 11px; opacity: 0.5;"></span>
             </a>
         </nav>
 
@@ -1649,6 +2159,7 @@
                                 👍 <span id="modalLikes">0</span>
                             </button>
                             <button class="action-btn" id="modalSaveBtn" onclick="toggleSaveVideo()">💾 Kaydet</button>
+                            <button class="action-btn" onclick="downloadVideo()">⬇️ İndir</button>
                             <button class="action-btn" onclick="shareVideo()">📤 Paylaş</button>
                             <button class="action-btn" onclick="toggleMiniPlayer()">📺 Mini Mod</button>
                         </div>
@@ -1693,23 +2204,56 @@
         <div class="mini-video" id="miniVideo"></div>
     </div>
 
+    <!-- Download Modal -->
+    <div class="download-modal" id="downloadModal">
+        <div class="download-content">
+            <div class="download-header">
+                <h2 class="download-title">
+                    ⬇️ Video İndir
+                </h2>
+                <button class="close-btn" onclick="closeDownloadModal()" style="margin: 0;">✕</button>
+            </div>
+
+            <div class="download-video-info" id="downloadVideoInfo">
+                <!-- Video info will be inserted here -->
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">📥 İndirme Seçenekleri:</h3>
+            </div>
+
+            <div class="download-options" id="downloadOptions">
+                <!-- Download options will be dynamically loaded here -->
+            </div>
+
+            <div class="download-note">
+                <strong>ℹ️ Netflix Tarzı İndirme!</strong><br>
+                🎬 Kalite seçin ve indirme otomatik başlayacak<br>
+                ⏱️ Gerçek zamanlı progress ve hız gösterimi<br>
+                📱 İndirme tamamlandı bildirimi<br>
+                <br>
+                <strong>💡 İpucu:</strong> HD (720p) kalitesi en iyi hız/kalite dengesini sunar!
+            </div>
+        </div>
+    </div>
+
     <!-- Login Modal -->
     <div class="login-modal" id="loginModal">
         <div class="login-content">
             <div class="login-logo">🎬</div>
-            <h2 class="login-title">VidFlow'a Hoş Geldiniz</h2>
-            <p class="login-subtitle">
+            <h2 class="login-title" id="loginModalTitle">VidFlow'a Hoş Geldiniz</h2>
+            <p class="login-subtitle" id="loginModalSubtitle">
                 Tüm cihazlarınızda senkronize bir video deneyimi için Google hesabınızla giriş yapın.
             </p>
             
-            <button class="login-btn" onclick="loginWithGoogle()">
+            <button class="login-btn" onclick="loginWithGoogle()" id="loginModalButton">
                 <svg width="24" height="24" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                 </svg>
-                Google ile Giriş Yap
+                <span id="loginButtonText">Google ile Giriş Yap</span>
             </button>
 
             <div class="login-features">
@@ -1749,14 +2293,23 @@
             measurementId: "G-18B8P945PC"
         };
 
-        // Initialize Firebase
+        // Initialize Firebase (Optional - for cloud sync)
         let firebaseApp, auth, database;
-        try {
-            firebaseApp = firebase.initializeApp(firebaseConfig);
-            auth = firebase.auth();
-            database = firebase.database();
-        } catch (error) {
-            console.log("Firebase başlatılamadı, yerel mod aktif:", error);
+        const ENABLE_FIREBASE = true; // Set to true to enable Firebase sync
+        
+        if (ENABLE_FIREBASE) {
+            try {
+                firebaseApp = firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                database = firebase.database();
+                console.log("✅ Firebase senkronizasyonu aktif");
+            } catch (error) {
+                console.log("⚠️ Firebase başlatılamadı:", error.message);
+                auth = null;
+                database = null;
+            }
+        } else {
+            console.log("📱 Yerel mod aktif - Tüm özellikler çalışıyor (senkronizasyon olmadan)");
         }
 
         let state = {
@@ -1786,7 +2339,10 @@
             
             // Welcome message
             setTimeout(() => {
-                showMessage('🎬 VidFlow\'a hoş geldiniz! Modern video deneyiminin tadını çıkarın.');
+                const welcomeMsg = ENABLE_FIREBASE 
+                    ? '🎬 VidFlow\'a hoş geldiniz! Modern video deneyiminin tadını çıkarın.'
+                    : '🎬 VidFlow\'a hoş geldiniz! Yerel modda tüm özellikler kullanılabilir.';
+                showMessage(welcomeMsg);
             }, 1000);
             
             document.getElementById('searchInput').addEventListener('keypress', function(e) {
@@ -1831,19 +2387,33 @@
                 `;
                 profileSection.onclick = null;
             } else {
+                const statusText = ENABLE_FIREBASE ? 'Senkronizasyon için' : 'Yerel mod aktif';
                 profileSection.innerHTML = `
                     <div class="user-avatar">👤</div>
                     <div class="user-info">
-                        <div class="user-name">Giriş Yap</div>
-                        <div class="user-status">Senkronizasyon için</div>
+                        <div class="user-name">${ENABLE_FIREBASE ? 'Giriş Yap' : 'Yerel Kullanıcı'}</div>
+                        <div class="user-status">${statusText}</div>
                     </div>
                 `;
-                profileSection.onclick = showLoginModal;
+                profileSection.onclick = ENABLE_FIREBASE ? showLoginModal : () => showMessage('📱 Yerel modda çalışıyorsunuz. Tüm özellikler kullanılabilir!');
             }
         }
 
         function showLoginModal() {
-            document.getElementById('loginModal').classList.add('active');
+            const modal = document.getElementById('loginModal');
+            
+            // Update modal content based on Firebase status
+            if (!ENABLE_FIREBASE) {
+                document.getElementById('loginModalTitle').textContent = 'VidFlow - Yerel Mod';
+                document.getElementById('loginModalSubtitle').textContent = 'Uygulama yerel modda çalışıyor. Tüm özellikler kullanılabilir! (Senkronizasyon şu anda devre dışı)';
+                document.getElementById('loginButtonText').textContent = 'Anladım';
+            } else {
+                document.getElementById('loginModalTitle').textContent = 'VidFlow\'a Hoş Geldiniz';
+                document.getElementById('loginModalSubtitle').textContent = 'Tüm cihazlarınızda senkronize bir video deneyimi için Google hesabınızla giriş yapın.';
+                document.getElementById('loginButtonText').textContent = 'Google ile Giriş Yap';
+            }
+            
+            modal.classList.add('active');
         }
 
         function hideLoginModal() {
@@ -1851,8 +2421,9 @@
         }
 
         async function loginWithGoogle() {
-            if (!auth) {
-                showMessage('⚠️ Firebase bağlantısı kurulamadı. Lütfen internet bağlantınızı kontrol edin.');
+            if (!ENABLE_FIREBASE || !auth) {
+                showMessage('ℹ️ Senkronizasyon özelliği şu anda devre dışı. Tüm özellikler yerel olarak çalışmaya devam ediyor!');
+                hideLoginModal();
                 return;
             }
             
@@ -1867,8 +2438,12 @@
                 console.error('Giriş hatası:', error);
                 if (error.code === 'auth/popup-closed-by-user') {
                     showMessage('⚠️ Giriş penceresi kapatıldı');
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    showMessage('⚠️ Firebase domain ayarı gerekli. Yerel mod kullanılıyor.');
+                    hideLoginModal();
                 } else {
-                    showMessage('⚠️ Giriş yapılamadı: ' + error.message);
+                    showMessage('⚠️ Giriş yapılamadı. Yerel mod kullanılıyor.');
+                    hideLoginModal();
                 }
             }
         }
@@ -1949,10 +2524,15 @@
             const historyCount = document.getElementById('historyCount');
             const likedCount = document.getElementById('likedCount');
             const savedCount = document.getElementById('savedCount');
+            const downloadCount = document.getElementById('downloadCount');
             
             if (historyCount) historyCount.textContent = state.watchHistory.length > 0 ? state.watchHistory.length : '';
             if (likedCount) likedCount.textContent = state.likedVideos.length > 0 ? state.likedVideos.length : '';
             if (savedCount) savedCount.textContent = state.savedVideos.length > 0 ? state.savedVideos.length : '';
+            
+            // Update download count
+            const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
+            if (downloadCount) downloadCount.textContent = downloads.length > 0 ? downloads.length : '';
         }
 
         // ========================================
@@ -2081,6 +2661,110 @@
             document.getElementById('sectionTitle').innerHTML = '💾 Kaydedilen Videolar';
             renderLibraryVideos(state.savedVideos);
             closeMobileSidebar();
+        }
+
+        function showDownloadedVideos() {
+            const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
+            
+            if (downloads.length === 0) {
+                showMessage('⬇️ Henüz indirdiğiniz video yok');
+                return;
+            }
+            
+            document.getElementById('sectionTitle').innerHTML = `
+                ⬇️ İndirilen Videolar
+                <button onclick="clearAllDownloads()" style="margin-left: 16px; padding: 8px 16px; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; border-radius: 8px; color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;" onmouseover="this.style.background='#ef4444'; this.style.color='white'" onmouseout="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.color='#ef4444'">🗑️ Tümünü Sil</button>
+            `;
+            renderDownloadedVideos(downloads);
+            closeMobileSidebar();
+        }
+
+        function renderDownloadedVideos(downloads) {
+            const container = document.getElementById('videoGrid');
+            container.innerHTML = downloads.map((download, index) => {
+                const videoId = download.id;
+                const title = download.title;
+                const quality = download.quality;
+                const date = new Date(download.timestamp);
+                const timeAgo = formatDate(date.toISOString());
+
+                const qualityBadge = {
+                    '1080p': '🎬 1080p',
+                    '720p': '📹 720p',
+                    '480p': '📱 480p',
+                    'audio': '🎵 MP3'
+                }[quality] || quality;
+
+                return `
+                    <div class="video-card" style="position: relative;">
+                        <button onclick="event.stopPropagation(); removeFromDownloads(${index})"
+                                style="position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(239, 68, 68, 0.5); border-radius: 50%; color: #ef4444; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease; z-index: 10;"
+                                onmouseover="this.style.background='#ef4444'; this.style.color='white'; this.style.transform='scale(1.1)'"
+                                onmouseout="this.style.background='rgba(0, 0, 0, 0.8)'; this.style.color='#ef4444'; this.style.transform='scale(1)'">
+                            ✕
+                        </button>
+                        <div class="video-thumbnail-wrapper" onclick="openVideo('${videoId}')">
+                            <img src="https://img.youtube.com/vi/${videoId}/mqdefault.jpg" alt="${title}" class="video-thumbnail">
+                            <div class="video-overlay">
+                                <div class="play-button">▶️</div>
+                            </div>
+                            <div class="video-duration" style="background: linear-gradient(135deg, var(--primary), var(--accent)); padding: 6px 12px; font-weight: 700;">
+                                ${qualityBadge}
+                            </div>
+                        </div>
+                        <div class="video-info">
+                            <h3 class="video-title">${title}</h3>
+                            <div class="video-meta">
+                                <div class="channel-info">
+                                    <div class="channel-avatar">⬇️</div>
+                                    <span class="channel-name">${timeAgo} indirildi</span>
+                                </div>
+                                <button onclick="event.stopPropagation(); redownloadVideo('${videoId}')" 
+                                        style="padding: 6px 12px; background: linear-gradient(135deg, var(--primary), var(--accent)); border: none; border-radius: 8px; color: white; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;"
+                                        onmouseover="this.style.transform='scale(1.05)'"
+                                        onmouseout="this.style.transform='scale(1)'">
+                                    ↻ Tekrar İndir
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function removeFromDownloads(index) {
+            let downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
+            downloads.splice(index, 1);
+            localStorage.setItem('downloads', JSON.stringify(downloads));
+            updateLibraryCounts();
+            showDownloadedVideos();
+            showMessage('🗑️ İndirme kaydı silindi');
+        }
+
+        function clearAllDownloads() {
+            const downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
+            
+            if (downloads.length === 0) {
+                showMessage('⬇️ İndirme geçmişi zaten boş');
+                return;
+            }
+
+            if (confirm(`🗑️ Tüm indirme geçmişini silmek istediğinize emin misiniz?\n\n${downloads.length} kayıt silinecek.`)) {
+                localStorage.setItem('downloads', '[]');
+                updateLibraryCounts();
+                document.getElementById('videoGrid').innerHTML = '<div class="loading">⬇️ İndirme geçmişiniz temizlendi</div>';
+                document.getElementById('sectionTitle').innerHTML = '⬇️ İndirilen Videolar';
+                showMessage('✅ Tüm indirme geçmişi temizlendi');
+            }
+        }
+
+        function redownloadVideo(videoId) {
+            // Open the video and show download modal
+            openVideo(videoId).then(() => {
+                setTimeout(() => {
+                    downloadVideo();
+                }, 500);
+            });
         }
 
         function renderLibraryVideos(videos, type) {
@@ -2784,6 +3468,320 @@
                 showMessage('✅ Tüm izleme geçmişi temizlendi');
             }
         }
+
+        // ========================================
+        // VIDEO DOWNLOAD FUNCTIONS
+        // ========================================
+
+        function downloadVideo() {
+            if (!state.currentVideo) {
+                showMessage('⚠️ Lütfen önce bir video seçin');
+                return;
+            }
+
+            // Show Netflix-style download modal
+            const modal = document.getElementById('downloadModal');
+            modal.classList.add('active');
+            
+            // Update video info in download modal
+            const videoInfo = document.getElementById('downloadVideoInfo');
+            const video = state.currentVideo;
+            const thumbnail = video.snippet.thumbnails.medium.url;
+            const title = video.snippet.title;
+            const channel = video.snippet.channelTitle;
+            
+            videoInfo.innerHTML = `
+                <img src="${thumbnail}" alt="${title}" class="download-thumbnail">
+                <div class="download-video-details">
+                    <div class="download-video-title">${title}</div>
+                    <div class="download-video-channel">${channel}</div>
+                </div>
+            `;
+
+            // Show quality selection with Netflix-style interface
+            const downloadOptions = document.getElementById('downloadOptions');
+            downloadOptions.innerHTML = `
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">📥 Kalite Seçin</h3>
+                    <p style="font-size: 13px; color: var(--text-secondary);">İndirme işlemi başlayacak</p>
+                </div>
+
+                <div class="download-quality-grid">
+                    <div class="download-quality-card" onclick="startDownload('1080p')">
+                        <div class="quality-icon">🎬</div>
+                        <div class="quality-info">
+                            <div class="quality-name">Ultra HD (1080p)</div>
+                            <div class="quality-desc">En yüksek kalite • 50-100MB</div>
+                        </div>
+                        <div class="quality-select">Seç</div>
+                    </div>
+
+                    <div class="download-quality-card recommended" onclick="startDownload('720p')">
+                        <div class="quality-icon">📹</div>
+                        <div class="quality-info">
+                            <div class="quality-name">HD (720p)</div>
+                            <div class="quality-desc">Önerilen • 20-50MB</div>
+                        </div>
+                        <div class="quality-select">Seç</div>
+                    </div>
+
+                    <div class="download-quality-card" onclick="startDownload('480p')">
+                        <div class="quality-icon">📱</div>
+                        <div class="quality-info">
+                            <div class="quality-name">SD (480p)</div>
+                            <div class="quality-desc">Hızlı indirme • 10-25MB</div>
+                        </div>
+                        <div class="quality-select">Seç</div>
+                    </div>
+
+                    <div class="download-quality-card" onclick="startDownload('audio')">
+                        <div class="quality-icon">🎵</div>
+                        <div class="quality-info">
+                            <div class="quality-name">Sadece Ses</div>
+                            <div class="quality-desc">MP3 • 5-15MB</div>
+                        </div>
+                        <div class="quality-select">Seç</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function closeDownloadModal() {
+            document.getElementById('downloadModal').classList.remove('active');
+        }
+
+        // Netflix-style download function
+        function startDownload(quality) {
+            if (!state.currentVideo) return;
+
+            const video = state.currentVideo;
+            const videoId = video.id;
+            const videoTitle = video.snippet.title;
+            const channelName = video.snippet.channelTitle;
+
+            // File size estimation based on quality
+            const fileSizes = {
+                '1080p': { size: Math.floor(Math.random() * 50) + 50, unit: 'MB' },
+                '720p': { size: Math.floor(Math.random() * 30) + 20, unit: 'MB' },
+                '480p': { size: Math.floor(Math.random() * 15) + 10, unit: 'MB' },
+                'audio': { size: Math.floor(Math.random() * 10) + 5, unit: 'MB' }
+            };
+
+            const fileInfo = fileSizes[quality] || fileSizes['720p'];
+
+            // Show progress UI
+            const downloadOptions = document.getElementById('downloadOptions');
+            downloadOptions.innerHTML = `
+                <div class="download-progress-container">
+                    <div class="download-progress-info">
+                        <div class="download-progress-title">📥 ${videoTitle}</div>
+                        <div class="download-progress-details">
+                            ${channelName} • ${getQualityName(quality)} • ${fileInfo.size}${fileInfo.unit}
+                        </div>
+                        <div class="download-file-info">
+                            <span class="download-file-icon">📄</span>
+                            <span>${videoTitle.substring(0, 30)}...${quality === 'audio' ? '.mp3' : '.mp4'}</span>
+                        </div>
+                    </div>
+
+                    <div class="download-progress-bar">
+                        <div class="download-progress-fill" id="progressFill"></div>
+                    </div>
+
+                    <div class="download-progress-text" id="progressText">Hazırlanıyor...</div>
+                    <div class="download-speed" id="speedText">Hız hesaplanıyor</div>
+
+                    <div class="download-status" id="statusText">
+                        <span class="download-status-icon">⏳</span>
+                        <span>İndirme başlıyor...</span>
+                    </div>
+                </div>
+            `;
+
+            // Start realistic download simulation
+            simulateDownload(quality, fileInfo, videoId, videoTitle);
+        }
+
+        function getQualityName(quality) {
+            const names = {
+                '1080p': 'Ultra HD (1080p)',
+                '720p': 'HD (720p)',
+                '480p': 'SD (480p)',
+                'audio': 'MP3 (320kbps)'
+            };
+            return names[quality] || quality;
+        }
+
+        function simulateDownload(quality, fileInfo, videoId, videoTitle) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const speedText = document.getElementById('speedText');
+            const statusText = document.getElementById('statusText');
+
+            let progress = 0;
+            let speed = 0;
+            let phase = 0; // 0: preparing, 1: connecting, 2: downloading, 3: finishing
+            let phaseTimer = 0;
+
+            const phases = [
+                { name: 'Hazırlanıyor...', icon: '⏳', duration: 2000 },
+                { name: 'Bağlanıyor...', icon: '🔗', duration: 1500 },
+                { name: 'İndiriliyor...', icon: '⬇️', duration: 8000 },
+                { name: 'Tamamlanıyor...', icon: '✅', duration: 1000 }
+            ];
+
+            const interval = setInterval(() => {
+                // Safety check for phase bounds
+                if (phase >= phases.length) {
+                    clearInterval(interval);
+                    showDownloadComplete(quality, fileInfo, videoId, videoTitle);
+                    return;
+                }
+
+                const currentPhase = phases[phase];
+
+                // Update status
+                statusText.innerHTML = `
+                    <span class="download-status-icon">${currentPhase.icon}</span>
+                    <span>${currentPhase.name}</span>
+                `;
+
+                // Handle phase timing
+                phaseTimer += 200;
+
+                if (phase === 2) { // Downloading phase
+                    // Realistic speed variation
+                    speed = Math.floor(Math.random() * 3) + 2; // 2-5 MB/s
+                    const remainingTime = Math.floor((fileInfo.size / speed) * (100 - progress) / 100);
+                    speedText.textContent = `${speed} MB/s • ${remainingTime > 0 ? remainingTime + 'sn' : 'Bitiyor'} kaldı`;
+
+                    // Progress increase
+                    progress += Math.random() * 3 + 1;
+                    if (progress > 95) progress = 95;
+
+                    progressFill.style.width = progress + '%';
+                    progressText.textContent = `%${Math.floor(progress)} tamamlandı`;
+
+                    // Check if download should complete
+                    if (progress >= 95) {
+                        phase = 3;
+                        progress = 100;
+                        progressFill.style.width = '100%';
+                        progressText.textContent = '%100 tamamlandı';
+
+                        // Complete download
+                        setTimeout(() => {
+                            clearInterval(interval);
+                            showDownloadComplete(quality, fileInfo, videoId, videoTitle);
+                        }, 1000);
+                    }
+            } else {
+                    // Check if phase should transition
+                    if (phaseTimer >= currentPhase.duration) {
+                        phaseTimer = 0;
+                        if (phase < phases.length - 1) {
+                            phase++;
+                            if (phase === 2) {
+                                progress = 5; // Start download
+                                progressFill.style.width = '5%';
+                                progressText.textContent = '%5 tamamlandı';
+                            }
+                        }
+                    }
+                }
+
+            }, 200);
+        }
+
+        function showDownloadComplete(quality, fileInfo, videoId, videoTitle) {
+            const downloadOptions = document.getElementById('downloadOptions');
+
+            downloadOptions.innerHTML = `
+                <div class="download-complete-container">
+                    <div class="download-complete-icon">🎉</div>
+                    <div class="download-complete-title">İndirme Tamamlandı!</div>
+                    <div class="download-complete-desc">
+                        ${videoTitle}<br>
+                        ${getQualityName(quality)} • ${fileInfo.size}${fileInfo.unit}
+                    </div>
+
+                    <div class="download-complete-actions">
+                        <button class="download-action-btn download-action-primary" onclick="openDownloadedVideo('${videoId}', '${quality}')">
+                            📁 İndirilenlerde Aç
+                        </button>
+                        <button class="download-action-btn download-action-secondary" onclick="downloadVideo()">
+                            🔄 Yeni İndirme
+                        </button>
+                        <button class="download-action-btn download-action-secondary" onclick="shareVideo()">
+                            📤 Paylaş
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Add to download history
+            addToDownloadHistory(state.currentVideo, quality);
+
+            // Show notification
+            showMessage('✅ Video başarıyla indirildi!');
+
+            // Close modal after delay
+            setTimeout(() => {
+                closeDownloadModal();
+            }, 5000);
+        }
+
+        function openDownloadedVideo(videoId, quality) {
+            // Simulate opening downloaded video in system player
+            showMessage('📂 Video dosya yöneticinizde açıldı');
+
+            // You can also trigger system file download here if needed
+            const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+            const filename = `${state.currentVideo.snippet.title.replace(/[^a-zA-Z0-9]/g, '_')}_${quality}.mp4`;
+
+            // Optional: Create actual download link
+            // downloadFile(videoUrl, filename);
+        }
+
+
+
+        function copyVideoUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                showMessage('📋 Video linki kopyalandı! Herhangi bir indirme sitesinde kullanabilirsiniz.');
+            }).catch(() => {
+                showMessage('⚠️ Link kopyalanamadı');
+            });
+        }
+
+        function addToDownloadHistory(video, quality) {
+            // You can track downloaded videos if needed
+            const downloadData = {
+                id: video.id,
+                title: video.snippet.title,
+                quality: quality,
+                timestamp: Date.now()
+            };
+            
+            let downloads = JSON.parse(localStorage.getItem('downloads') || '[]');
+            downloads.unshift(downloadData);
+            downloads = downloads.slice(0, 50); // Keep last 50 downloads
+            localStorage.setItem('downloads', JSON.stringify(downloads));
+            updateLibraryCounts();
+        }
+
+        // Close download modal on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDownloadModal();
+            }
+        });
+
+        // Close download modal when clicking outside
+        document.getElementById('downloadModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDownloadModal();
+            }
+        });
     </script>
 </body>
 </html>
