@@ -2413,6 +2413,28 @@
             // Sponsor segment types to skip
             sponsorCategories: ['sponsor', 'intro', 'outro', 'selfpromo', 'interaction', 'music_offtopic'],
 
+            // Alternative embed providers (ad-free or less ads)
+            embedProviders: {
+                // youtube-nocookie has fewer tracking but still has ads
+                nocookie: 'https://www.youtube-nocookie.com/embed/',
+                // Invidious instances (open source YouTube frontend - NO ADS)
+                invidious: [
+                    'https://inv.nadeko.net/embed/',
+                    'https://invidious.nerdvpn.de/embed/',
+                    'https://invidious.privacyredirect.com/embed/',
+                    'https://yewtu.be/embed/',
+                    'https://vid.puffyan.us/embed/'
+                ],
+                // Piped instances (another ad-free alternative)
+                piped: [
+                    'https://piped.video/embed/',
+                    'https://piped.kavin.rocks/embed/'
+                ]
+            },
+
+            currentProviderIndex: 0,
+            useAlternativePlayer: true, // Alternatif oynatıcı kullan (reklamsız)
+
             // Initialize ad blocking
             init() {
                 if (state.features.adBlock) {
@@ -2422,17 +2444,16 @@
 
             // Enable ad blocking
             enableAdBlock() {
-                // Block ad-related requests (conceptual - actual implementation would need service worker)
                 console.log('🛡️ Ad blocking enabled');
-                
-                // Add CSS to hide ad elements
                 this.injectAdBlockStyles();
+                this.useAlternativePlayer = true;
             },
 
             // Disable ad blocking
             disableAdBlock() {
                 console.log('🛡️ Ad blocking disabled');
                 this.removeAdBlockStyles();
+                this.useAlternativePlayer = false;
             },
 
             // Inject CSS to hide ad elements
@@ -2451,12 +2472,21 @@
                     .ytp-ad-player-overlay,
                     .ytp-ad-action-interstitial,
                     .ytp-ad-image-overlay,
+                    .ytp-ad-progress,
+                    .ytp-ad-progress-list,
                     #player-ads,
                     .ytd-ad-slot-renderer,
                     ytd-banner-promo-renderer,
                     ytd-video-masthead-ad-v3-renderer,
-                    ytd-primetime-promo-renderer {
+                    ytd-primetime-promo-renderer,
+                    .ytp-paid-content-overlay,
+                    .iv-branding,
+                    .annotation,
+                    .ytp-ce-element {
                         display: none !important;
+                        visibility: hidden !important;
+                        opacity: 0 !important;
+                        pointer-events: none !important;
                     }
                 `;
                 document.head.appendChild(style);
@@ -2468,29 +2498,51 @@
                 if (style) style.remove();
             },
 
-            // Get embed URL with ad-blocking parameters
+            // Get the best embed URL (tries ad-free alternatives first)
             getCleanEmbedUrl(videoId, autoplay = true, startTime = 0) {
                 const params = new URLSearchParams({
                     autoplay: autoplay ? '1' : '0',
-                    rel: '0',           // Don't show related videos from other channels
-                    modestbranding: '1', // Minimal YouTube branding
-                    iv_load_policy: '3', // Hide annotations
-                    disablekb: '0',      // Enable keyboard controls
-                    fs: '1',             // Allow fullscreen
-                    playsinline: '1',    // Play inline on mobile
-                    enablejsapi: '1'     // Enable JavaScript API for time tracking
+                    rel: '0',
+                    modestbranding: '1',
+                    iv_load_policy: '3',
+                    disablekb: '0',
+                    fs: '1',
+                    playsinline: '1',
+                    enablejsapi: '1',
+                    origin: window.location.origin
                 });
 
-                // Add start time if provided
                 if (startTime > 0) {
                     params.set('start', Math.floor(startTime));
+                    params.set('t', Math.floor(startTime)); // Invidious format
                 }
 
-                // Add ad-blocking parameters if enabled
-                if (state.features.adBlock) {
-                    params.set('controls', '1');
+                // Reklam engelleme aktifse alternatif oynatıcı kullan
+                if (state.features.adBlock && this.useAlternativePlayer) {
+                    // Invidious kullan (tamamen reklamsız)
+                    const invidiousUrl = this.embedProviders.invidious[this.currentProviderIndex % this.embedProviders.invidious.length];
+                    return `${invidiousUrl}${videoId}?${params.toString()}`;
                 }
 
+                // Normal YouTube (reklamlı)
+                return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
+            },
+
+            // Alternatif sağlayıcıya geç (biri çalışmazsa)
+            switchProvider() {
+                this.currentProviderIndex++;
+                console.log('🔄 Switching to next provider:', this.currentProviderIndex);
+            },
+
+            // YouTube'a geri dön
+            fallbackToYouTube(videoId, autoplay, startTime) {
+                const params = new URLSearchParams({
+                    autoplay: autoplay ? '1' : '0',
+                    rel: '0',
+                    modestbranding: '1',
+                    playsinline: '1'
+                });
+                if (startTime > 0) params.set('start', Math.floor(startTime));
                 return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
             }
         };
@@ -3072,13 +3124,7 @@
             modal.scrollTop = 0;
             
             // Load video with ad-blocking URL (kaldığı yerden başlat)
-            const embedUrl = AdBlocker.getCleanEmbedUrl(videoId, true, state.currentVideoTime);
-            document.getElementById('modalVideoPlayer').innerHTML = `
-                <iframe id="modalPlayerIframe" src="${embedUrl}" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                        allowfullscreen>
-                </iframe>
-            `;
+            loadVideoPlayer(videoId, state.currentVideoTime, 'modalVideoPlayer');
             
             // Zaman takibi başlat
             startTimeTracking('modalPlayerIframe');
@@ -3340,11 +3386,7 @@
             // Modal'daki iframe'den mevcut zamanı al
             const modalIframe = document.querySelector('#modalVideoPlayer iframe');
             if (modalIframe) {
-                // postMessage ile zaman bilgisini almaya çalış
                 try {
-                    // YouTube iframe'den zamanı almak için URL'den tahmin et
-                    // Not: Cross-origin kısıtlamaları nedeniyle doğrudan erişemiyoruz
-                    // Bu yüzden kullanıcının izlediği süreyi tahmin ediyoruz
                     const currentTime = state.currentVideoTime || 0;
                     state.currentVideoTime = currentTime;
                 } catch (e) {
@@ -3358,14 +3400,8 @@
             
             document.getElementById('miniTitle').textContent = state.currentVideo.snippet.title.substring(0, 50) + '...';
             
-            // Kaldığı yerden devam et
-            const embedUrl = AdBlocker.getCleanEmbedUrl(state.currentVideo.id, true, state.currentVideoTime);
-            document.getElementById('miniVideo').innerHTML = `
-                <iframe id="miniPlayerIframe" src="${embedUrl}" 
-                        allow="autoplay; encrypted-media" 
-                        allowfullscreen>
-                </iframe>
-            `;
+            // Kaldığı yerden devam et - akıllı yükleyici kullan
+            loadMiniPlayer(state.currentVideo.id, state.currentVideoTime);
             
             // Mini player'da zaman takibi başlat
             startTimeTracking('miniPlayerIframe');
@@ -3412,14 +3448,8 @@
             document.body.style.overflow = 'hidden';
             modal.scrollTop = 0;
             
-            // Kaldığı yerden başlat
-            const embedUrl = AdBlocker.getCleanEmbedUrl(videoId, true, startTime);
-            document.getElementById('modalVideoPlayer').innerHTML = `
-                <iframe id="modalPlayerIframe" src="${embedUrl}" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                        allowfullscreen>
-                </iframe>
-            `;
+            // Kaldığı yerden başlat - akıllı yükleyici kullan
+            loadVideoPlayer(videoId, startTime, 'modalVideoPlayer');
             
             // Zaman takibi başlat
             startTimeTracking('modalPlayerIframe');
@@ -3657,6 +3687,71 @@
                 clearTimeout(timeout);
                 timeout = setTimeout(later, wait);
             };
+        }
+
+        // ==================== VIDEO PLAYER LOADER ====================
+        // Akıllı video yükleyici - alternatif sağlayıcılar arasında geçiş yapar
+        function loadVideoPlayer(videoId, startTime = 0, containerId = 'modalVideoPlayer', retryCount = 0) {
+            const container = document.getElementById(containerId);
+            const maxRetries = AdBlocker.embedProviders.invidious.length + 1;
+            
+            // Embed URL al
+            let embedUrl;
+            if (retryCount >= maxRetries) {
+                // Tüm alternatifler başarısız, YouTube'a dön
+                embedUrl = AdBlocker.fallbackToYouTube(videoId, true, startTime);
+                showNotification('⚠️ Alternatif oynatıcılar çalışmıyor, YouTube kullanılıyor', 'warning');
+            } else {
+                embedUrl = AdBlocker.getCleanEmbedUrl(videoId, true, startTime);
+            }
+            
+            const iframeId = containerId === 'modalVideoPlayer' ? 'modalPlayerIframe' : 'miniPlayerIframe';
+            
+            container.innerHTML = `
+                <iframe id="${iframeId}" 
+                        src="${embedUrl}" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                        allowfullscreen
+                        style="width: 100%; height: 100%; border: none;">
+                </iframe>
+            `;
+            
+            const iframe = document.getElementById(iframeId);
+            
+            // Iframe yükleme hatası kontrolü
+            let loadTimeout = setTimeout(() => {
+                // 8 saniye içinde yüklenmediyse alternatife geç
+                console.log('⏱️ Video yükleme zaman aşımı, alternatif deneniyor...');
+                AdBlocker.switchProvider();
+                loadVideoPlayer(videoId, startTime, containerId, retryCount + 1);
+            }, 8000);
+            
+            iframe.onload = () => {
+                clearTimeout(loadTimeout);
+                console.log('✅ Video yüklendi:', embedUrl.substring(0, 50) + '...');
+            };
+            
+            iframe.onerror = () => {
+                clearTimeout(loadTimeout);
+                console.log('❌ Video yükleme hatası, alternatif deneniyor...');
+                AdBlocker.switchProvider();
+                loadVideoPlayer(videoId, startTime, containerId, retryCount + 1);
+            };
+        }
+
+        // Mini player için video yükle
+        function loadMiniPlayer(videoId, startTime = 0) {
+            const container = document.getElementById('miniVideo');
+            const embedUrl = AdBlocker.getCleanEmbedUrl(videoId, true, startTime);
+            
+            container.innerHTML = `
+                <iframe id="miniPlayerIframe" 
+                        src="${embedUrl}" 
+                        allow="autoplay; encrypted-media" 
+                        allowfullscreen
+                        style="width: 100%; height: 100%; border: none;">
+                </iframe>
+            `;
         }
 
         // Initialize Ad Blocker
